@@ -1,0 +1,9 @@
+sample,condition,replicate,run_accession,fastq_md5,fastq_url
+SNF2_rep1,SNF2,1,ERR458500,107aad97e33ef1370cb03e2b4bab9a52,https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR458/ERR458500/ERR458500.fastq.gz
+SNF2_rep2,SNF2,2,ERR458507,93bca10ae3d79e901c3a021890212eb5,https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR458/ERR458507/ERR458507.fastq.gz
+SNF2_rep3,SNF2,3,ERR458514,48fa134b6319a57f9442c37e7df5c83b,https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR458/ERR458514/ERR458514.fastq.gz
+SNF2_rep4,SNF2,4,ERR458521,98a9d3368d2d79839297385e5c6066a7,https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR458/ERR458521/ERR458521.fastq.gz
+WT_rep1,WT,1,ERR458493,2b8c708cce1fd88e7ddecd51e5ae2154,https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR458/ERR458493/ERR458493.fastq.gz
+WT_rep2,WT,2,ERR458878,79587e50496fc15309376fb388a6c0c6,https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR458/ERR458878/ERR458878.fastq.gz
+WT_rep3,WT,3,ERR458885,342dda6f9aea0f694f2f5257d8d2df1a,https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR458/ERR458885/ERR458885.fastq.gz
+WT_rep4,WT,4,ERR458892,494f25082e2bfb9c540ebf3dad90b2c8,https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR458/ERR458892/ERR458892.fastq.gz
