@@ -2,3 +2,5 @@ work/
 results/
 .nextflow*
 data/raw/
+*.tmp
+metadata/MD5SUMS
