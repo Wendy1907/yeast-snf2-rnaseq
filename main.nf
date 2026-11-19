@@ -3,6 +3,7 @@ include { DOWNLOAD as DOWNLOAD_REFERENCE } from './modules/download.nf'
 include { HISAT2_INDEX                   } from './modules/hisat2_index.nf'
 include { FASTQC                         } from './modules/fastqc.nf'
 include { FASTP                          } from './modules/fastp.nf'
+include { HISAT2_ALIGN                   } from './modules/hisat2_align.nf'
 
 params {
     // Table describing the samples: name, condition, checksum and download link
@@ -40,15 +41,19 @@ workflow {
     // --- Analysis stage 2: adapter and quality trimming ----------------
     fastp = FASTP(reads)
 
-    fastp.reads.view { id, fq -> "Trimmed reads ready: ${id}" }
-    index.view { dir -> "Index ready:   ${dir.name}" }
+    // --- Analysis stage 3: align to the genome, sort and index ---------
+    align = HISAT2_ALIGN(fastp.reads, index.first())
 
     publish:
     fastqc_html = fastqc.html
     fastp_html  = fastp.html
+    bam         = align.bam
+    align_logs  = align.log.mix(align.flagstat)
 }
 
 output {
     fastqc_html { path 'fastqc' }
     fastp_html  { path 'fastp' }
+    bam         { path 'alignments' }
+    align_logs  { path 'alignment_logs' }
 }
