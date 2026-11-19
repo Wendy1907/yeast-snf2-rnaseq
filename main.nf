@@ -1,16 +1,54 @@
-include { DOWNLOAD_FASTQ } from './modules/download_fastq.nf'
+include { DOWNLOAD as DOWNLOAD_READS     } from './modules/download.nf'
+include { DOWNLOAD as DOWNLOAD_REFERENCE } from './modules/download.nf'
+include { HISAT2_INDEX                   } from './modules/hisat2_index.nf'
+include { FASTQC                         } from './modules/fastqc.nf'
+include { FASTP                          } from './modules/fastp.nf'
 
 params {
     // Table describing the samples: name, condition, checksum and download link
     samplesheet: Path = "${projectDir}/samplesheet.csv"
+
+    // Reference genome and annotation: Ensembl release 115, assembly R64-1-1
+    genome_url: String = "https://ftp.ensembl.org/pub/release-115/fasta/saccharomyces_cerevisiae/dna/Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz"
+    genome_md5: String = "5ae49d2d22cd977abdd6b054b94c544d"
+    gtf_url:    String = "https://ftp.ensembl.org/pub/release-115/gtf/saccharomyces_cerevisiae/Saccharomyces_cerevisiae.R64-1-1.115.gtf.gz"
+    gtf_md5:    String = "b26b4cb4cdf143f605c6e917d1f37f5f"
 }
 
 workflow {
     main:
-    samples = channel.fromPath(params.samplesheet).splitCsv(header: true)
-    samples.view { row -> "Sample: ${row.sample} (${row.condition}, replicate ${row.replicate})" }
+    // --- Setup: reads --------------------------------------------------
+    samples  = channel.fromPath(params.samplesheet).splitCsv(header: true)
+    reads_in = samples.map { row -> tuple(row.sample, "${row.sample}.fastq.gz", row.fastq_url, row.fastq_md5) }
+    reads    = DOWNLOAD_READS(reads_in)
 
-    to_download = samples.map { row -> tuple(row.sample, row.fastq_url, row.fastq_md5) }
-    reads = DOWNLOAD_FASTQ(to_download)
-    reads.view { id, fq -> "Downloaded: ${id} -> ${fq.name}" }
+    // --- Setup: reference ----------------------------------------------
+    reference_in = channel.of(
+        tuple('genome',     'genome.fa.gz',      params.genome_url, params.genome_md5),
+        tuple('annotation', 'annotation.gtf.gz', params.gtf_url,    params.gtf_md5)
+    )
+    reference = DOWNLOAD_REFERENCE(reference_in)
+    genome    = reference.filter { id, f -> id == 'genome' }.map { id, f -> f }
+    gtf       = reference.filter { id, f -> id == 'annotation' }.map { id, f -> f }
+
+    // --- Setup: aligner index ------------------------------------------
+    index = HISAT2_INDEX(genome, gtf)
+
+    // --- Analysis stage 1: quality control of the raw reads ------------
+    fastqc = FASTQC(reads)
+
+    // --- Analysis stage 2: adapter and quality trimming ----------------
+    fastp = FASTP(reads)
+
+    fastp.reads.view { id, fq -> "Trimmed reads ready: ${id}" }
+    index.view { dir -> "Index ready:   ${dir.name}" }
+
+    publish:
+    fastqc_html = fastqc.html
+    fastp_html  = fastp.html
+}
+
+output {
+    fastqc_html { path 'fastqc' }
+    fastp_html  { path 'fastp' }
 }

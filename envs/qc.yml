@@ -1,0 +1,8 @@
+name: yeast-snf2-qc
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  - fastqc=0.13.0
+  - fastp=1.4.0

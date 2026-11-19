@@ -1,0 +1,8 @@
+name: yeast-snf2-align
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  - hisat2=2.2.3
+  - samtools=1.25
