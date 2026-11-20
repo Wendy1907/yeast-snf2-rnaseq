@@ -6,6 +6,7 @@ include { FASTP                          } from './modules/fastp.nf'
 include { HISAT2_ALIGN                   } from './modules/hisat2_align.nf'
 include { FEATURECOUNTS                  } from './modules/featurecounts.nf'
 include { DESEQ2                         } from './modules/deseq2.nf'
+include { MULTIQC                        } from './modules/multiqc.nf'
 
 params {
     // Table describing the samples: name, condition, checksum and download link
@@ -19,6 +20,9 @@ params {
 
     // Library strandedness for read counting: 0 = unstranded, 1 = stranded, 2 = reversely stranded
     strandedness: Integer = 0
+
+    // MultiQC report settings
+    multiqc_config: Path = "${projectDir}/assets/multiqc_config.yaml"
 }
 
 workflow {
@@ -56,24 +60,34 @@ workflow {
     // --- Analysis stage 5: differential expression with DESeq2 ---------
     deseq2 = DESEQ2(counts.matrix, params.samplesheet)
 
+    // --- Analysis stage 6: summary report of all QC and alignment logs -
+    multiqc_inputs = fastqc.zip
+        .mix(fastp.json, align.log, align.flagstat, counts.summary)
+        .collect()
+    multiqc = MULTIQC(multiqc_inputs, params.multiqc_config)
+
     publish:
-    fastqc_html   = fastqc.html
-    fastp_html    = fastp.html
-    bam           = align.bam
-    align_logs    = align.log.mix(align.flagstat)
-    count_matrix  = counts.matrix
-    count_summary = counts.summary
-    de_tables     = deseq2.results.mix(deseq2.normalized, deseq2.summary, deseq2.sessioninfo)
-    de_figures    = deseq2.plots
+    fastqc_html    = fastqc.html
+    fastp_html     = fastp.html
+    bam            = align.bam
+    align_logs     = align.log.mix(align.flagstat)
+    count_matrix   = counts.matrix
+    count_summary  = counts.summary
+    de_tables      = deseq2.results.mix(deseq2.normalized, deseq2.summary, deseq2.sessioninfo)
+    de_figures     = deseq2.plots
+    multiqc_report = multiqc.report
+    multiqc_data   = multiqc.data
 }
 
 output {
-    fastqc_html   { path 'fastqc' }
-    fastp_html    { path 'fastp' }
-    bam           { path 'alignments' }
-    align_logs    { path 'alignment_logs' }
-    count_matrix  { path 'counts' }
-    count_summary { path 'counts' }
-    de_tables     { path 'deseq2' }
-    de_figures    { path 'deseq2/figures' }
+    fastqc_html    { path 'fastqc' }
+    fastp_html     { path 'fastp' }
+    bam            { path 'alignments' }
+    align_logs     { path 'alignment_logs' }
+    count_matrix   { path 'counts' }
+    count_summary  { path 'counts' }
+    de_tables      { path 'deseq2' }
+    de_figures     { path 'deseq2/figures' }
+    multiqc_report { path 'multiqc' }
+    multiqc_data   { path 'multiqc' }
 }

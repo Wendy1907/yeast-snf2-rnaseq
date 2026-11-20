@@ -1,0 +1,7 @@
+title: "Yeast SNF2 knockout vs wild type RNA-seq"
+extra_fn_clean_exts:
+  - ".hisat2"
+  - ".flagstat"
+  - ".fastp"
+  - ".sorted"
+  - ".trimmed"
