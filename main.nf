@@ -5,6 +5,7 @@ include { FASTQC                         } from './modules/fastqc.nf'
 include { FASTP                          } from './modules/fastp.nf'
 include { HISAT2_ALIGN                   } from './modules/hisat2_align.nf'
 include { FEATURECOUNTS                  } from './modules/featurecounts.nf'
+include { DESEQ2                         } from './modules/deseq2.nf'
 
 params {
     // Table describing the samples: name, condition, checksum and download link
@@ -52,6 +53,9 @@ workflow {
     bams   = align.bam.map { id, bam, bai -> bam }.collect()
     counts = FEATURECOUNTS(bams, gtf.first(), params.strandedness)
 
+    // --- Analysis stage 5: differential expression with DESeq2 ---------
+    deseq2 = DESEQ2(counts.matrix, params.samplesheet)
+
     publish:
     fastqc_html   = fastqc.html
     fastp_html    = fastp.html
@@ -59,6 +63,8 @@ workflow {
     align_logs    = align.log.mix(align.flagstat)
     count_matrix  = counts.matrix
     count_summary = counts.summary
+    de_tables     = deseq2.results.mix(deseq2.normalized, deseq2.summary, deseq2.sessioninfo)
+    de_figures    = deseq2.plots
 }
 
 output {
@@ -68,4 +74,6 @@ output {
     align_logs    { path 'alignment_logs' }
     count_matrix  { path 'counts' }
     count_summary { path 'counts' }
+    de_tables     { path 'deseq2' }
+    de_figures    { path 'deseq2/figures' }
 }
