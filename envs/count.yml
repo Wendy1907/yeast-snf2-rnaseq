@@ -1,0 +1,7 @@
+name: yeast-snf2-count
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  - subread=2.1.1

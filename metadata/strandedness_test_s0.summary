@@ -1,0 +1,15 @@
+Status	SNF2_rep1.sorted.bam	SNF2_rep2.sorted.bam	SNF2_rep3.sorted.bam	SNF2_rep4.sorted.bam	WT_rep1.sorted.bam	WT_rep2.sorted.bam	WT_rep3.sorted.bam	WT_rep4.sorted.bam
+Assigned	1476054	1251270	1253020	1539273	839087	1121079	914495	1464752
+Unassigned_Unmapped	49423	47151	31298	56754	36894	43216	30870	66065
+Unassigned_Read_Type	0	0	0	0	0	0	0	0
+Unassigned_Singleton	0	0	0	0	0	0	0	0
+Unassigned_MappingQuality	0	0	0	0	0	0	0	0
+Unassigned_Chimera	0	0	0	0	0	0	0	0
+Unassigned_FragmentLength	0	0	0	0	0	0	0	0
+Unassigned_Duplicate	0	0	0	0	0	0	0	0
+Unassigned_MultiMapping	437577	391150	405555	469098	353699	442178	422065	588939
+Unassigned_Secondary	0	0	0	0	0	0	0	0
+Unassigned_NonSplit	0	0	0	0	0	0	0	0
+Unassigned_NoFeatures	113167	70247	74807	113739	35447	78513	68242	89647
+Unassigned_Overlapping_Length	0	0	0	0	0	0	0	0
+Unassigned_Ambiguity	92407	83215	85512	96099	60723	74965	61904	105138
