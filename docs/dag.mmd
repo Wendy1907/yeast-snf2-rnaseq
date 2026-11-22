@@ -1,0 +1,69 @@
+flowchart TB
+    subgraph " "
+    v0["channel.fromPath"]
+    v4["channel.of"]
+    v20["strandedness"]
+    v23["samplesheet"]
+    v28["config"]
+    end
+    v3(["DOWNLOAD_READS"])
+    v5(["DOWNLOAD_REFERENCE"])
+    v10(["HISAT2_INDEX"])
+    v11(["FASTQC"])
+    subgraph " "
+    v12[" "]
+    v14[" "]
+    v22[" "]
+    v25[" "]
+    v30[" "]
+    v31[" "]
+    v33[" "]
+    v35[" "]
+    end
+    v13(["FASTP"])
+    v16(["HISAT2_ALIGN"])
+    v21(["FEATURECOUNTS"])
+    v24(["DESEQ2"])
+    v29(["MULTIQC"])
+    v1(( ))
+    v6(( ))
+    v8(( ))
+    v15(( ))
+    v17(( ))
+    v26(( ))
+    v32(( ))
+    v34(( ))
+    v0 --> v1
+    v1 --> v3
+    v3 --> v11
+    v3 --> v13
+    v4 --> v5
+    v5 --> v6
+    v5 --> v8
+    v6 --> v10
+    v8 --> v10
+    v10 --> v15
+    v11 --> v12
+    v11 --> v26
+    v13 --> v16
+    v13 --> v14
+    v13 --> v26
+    v15 --> v16
+    v16 --> v17
+    v16 --> v26
+    v16 --> v32
+    v20 --> v21
+    v8 --> v21
+    v17 --> v21
+    v21 --> v22
+    v21 --> v24
+    v21 --> v26
+    v23 --> v24
+    v24 --> v25
+    v24 --> v34
+    v28 --> v29
+    v26 --> v29
+    v29 --> v31
+    v29 --> v30
+    v32 --> v33
+    v34 --> v35
