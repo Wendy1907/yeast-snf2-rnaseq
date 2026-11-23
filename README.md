@@ -202,7 +202,7 @@ To mimic a 6-core machine for timing, add `-c conf/limit_6cores.config`. To rest
 
 - **Time:** measured on a clean clone, capped at 6 CPUs (Ubuntu on WSL2, amd64, fast connection): **7 min 8 s** for everything, including downloads (13 s to 3 min 46 s per file) and building the environments. The analysis stages together take about a minute. A slower connection mostly lengthens the downloads.
 - **Memory:** the largest task (fastp) peaked at 1.1 GB.
-- **The last output** is the reproducibility check printed in the terminal; a successful run ends with `OVERALL: PASS`:
+- **The last output** is the reproducibility check printed in the terminal; a successful run ends with `OVERALL: PASS`. The report showed in `results/check_report.txt`:
 
 ```
 Reproducibility check against expected_results/
