@@ -7,6 +7,7 @@ include { HISAT2_ALIGN                   } from './modules/hisat2_align.nf'
 include { FEATURECOUNTS                  } from './modules/featurecounts.nf'
 include { DESEQ2                         } from './modules/deseq2.nf'
 include { MULTIQC                        } from './modules/multiqc.nf'
+include { CHECK_RESULTS                  } from './modules/check_results.nf'
 
 params {
     // Table describing the samples: name, condition, checksum and download link
@@ -23,6 +24,9 @@ params {
 
     // MultiQC report settings
     multiqc_config: Path = "${projectDir}/assets/multiqc_config.yaml"
+
+    // Reference outputs that a finished run is compared against
+    expected_dir: Path = "${projectDir}/expected_results"
 }
 
 workflow {
@@ -66,6 +70,13 @@ workflow {
         .collect()
     multiqc = MULTIQC(multiqc_inputs, params.multiqc_config)
 
+    // --- Final check: compare this run with the expected results -------
+    check_inputs = counts.matrix
+        .mix(deseq2.results, deseq2.plots.flatten(), multiqc.report, align.log)
+        .collect()
+    check = CHECK_RESULTS(check_inputs, params.expected_dir)
+    check.report.view { f -> f.text }
+
     publish:
     fastqc_html    = fastqc.html
     fastp_html     = fastp.html
@@ -77,6 +88,7 @@ workflow {
     de_figures     = deseq2.plots
     multiqc_report = multiqc.report
     multiqc_data   = multiqc.data
+    check_report   = check.report
 }
 
 output {
@@ -90,4 +102,5 @@ output {
     de_figures     { path 'deseq2/figures' }
     multiqc_report { path 'multiqc' }
     multiqc_data   { path 'multiqc' }
+    check_report   { path '.' }
 }

@@ -1,0 +1,6 @@
+Comparison: SNF2 vs WT (positive log2 fold change = higher in SNF2)
+Samples: 4 WT, 4 SNF2
+Genes tested after filtering: 5454 (of 7127 in the count table)
+Significant (padj < 0.05): 1318  [up: 511, down: 807]
+Significant and |shrunken log2FC| >= 1: 280  [up: 71, down: 209]
+Knockout check YOR290C: log2FC = -9.17, padj = 2.59e-18
