@@ -26,40 +26,40 @@ SNF2 is the catalytic ATPase subunit of the SWI/SNF chromatin-remodelling comple
 
 **Biological question:** Which genes show changes in expression following SNF2 deletion in *S. cerevisiae*?
 
-**Computational goal:** Develop a reproducible RNA-seq analysis pipeline that produces consistent results across runs. The workflow incorporates pinned software version, verified data downloads, automated data retrieval, and built-in validation against predefined expected results.
+**Computational goal:** Develop a reproducible RNA-seq analysis pipeline that produces consistent results across runs. The workflow incorporates pinned software versions, verified data downloads, automated data retrieval, and built-in validation against predefined expected results.
 
-The analysis uses data from a published, highly replicated RNA-seq experiment (Gierliński *et al.* 2015; Schurch *et al.* 2016). This project uses a small subset: **4 wild-type and 4 Δsnf2 biological replicates**, chosen so that the total download size reduces to under 0.7 GB and allows the pipeline to complete within minutes on a standard laptop.
+The analysis uses data from a published, highly replicated RNA-seq experiment (Gierliński *et al.* 2015; Schurch *et al.* 2016). This project uses a small subset: **4 wild-type and 4 Δsnf2 biological replicates**, chosen so that the total download size is under 0.7 GB and the pipeline can complete within minutes on a standard laptop.
 
 ## 2. Rationale for the pipeline's design
 
-**Why Nextflow?** 
+**Why Nextflow?**
 
-A workflow manager makes the analysis easier to run, maintain, and reproduce across different machines. Unlike a basic shell script, Nextflow supports parallel processing, assigns each task its own working directory, and can resume an interrupted analysis without repeating completed steps using `-resume`. It also record execution details and software information in (`results/pipeline_info/`), making the workflow eaiser to monitor and debug.
+A workflow manager makes the analysis easier to run, maintain, and reproduce across different machines. Unlike a basic shell script, Nextflow supports parallel processing, assigns each task its own working directory, and can resume an interrupted analysis without repeating completed steps using `-resume`. It also records execution details and software information in `results/pipeline_info/`, making the workflow easier to monitor and debug.
 
-**Why Conda instead of Docker?** 
+**Why Conda instead of Docker?**
 
-Each process declares its own pinned Conda environment defined in `envs/*.yml`, and Nextflow builds it automatically, ensuring that each tool runs with the correct dependencies. Conda was chosen because the reuqired packages are available natively for Linux amd64, Linux arm64, macOS Intel, and macOS Apple silicon, with compatibility verified by solving each environement for all four platforms. In contrast, most available BioContainers images are amd64-only, which can reuqire slower emulation on Apple silicon. Docker also requires a deamon that may not be permitted on shared computing cluster.
+Each process declares its own pinned Conda environment defined in `envs/*.yml`, and Nextflow builds it automatically, ensuring that each tool runs with the correct dependencies. Conda was chosen because the required packages are available natively for Linux amd64, Linux arm64, macOS Intel, and macOS Apple silicon, with compatibility verified by solving each environment for all four platforms. In contrast, most available BioContainers images are amd64-only, which can require slower emulation on Apple silicon. Docker also requires a daemon that may not be permitted on shared computing clusters.
 
-**Pinned software and verified inputs** 
+**Pinned software and verified inputs**
 
-Every tool version is pinned. Reads come from ENA by explicit URL with an MD5 checksum; the Ensembl reference is a fixed release (115) with MD5 checksums recorded in `main.nf`. A corrupt or changed file fails loudly and is retried instead of silently changing results. Downloads retry automatically and fall back from `https://` to `ftp://`.
+Every tool version is pinned. The sequencing reads are unmodified copies of the ENA files, hosted as assets of the GitHub release `data-v1` of this repository (see [section 4](#4-data)). They are hosted there because downloads directly from ENA were slow and often stalled, which made it difficult to finish within the 1-hour, 6-core target. Each read file is still verified against the MD5 checksum that ENA publishes for the original file, which is recorded in `samplesheet.csv`. The Ensembl reference is a fixed release (115) with MD5 checksums recorded in `main.nf`. A corrupt or changed file fails loudly and is retried instead of silently changing results. Downloads retry automatically, abort and retry when a transfer stalls (below 100 KB/s for 30 seconds), and fall back from `https://` to `ftp://` if the primary URL fails.
 
 **Choice of tools**
 
 | Step | Choice | Reason |
 |---|---|---|
-| Alignment | HISAT2 | Efficient for the small yeast genome (~12 Mb), with low memory requirements (peak ~0.6 GB) and support for known splice sites.|
-| Gene Counting | featureCounts, exons grouped by `gene_id` | Standard gene-level counts; multi-mapping reads are excluded (default), as usual for differential expression. |
+| Alignment | HISAT2 | Efficient for the small yeast genome (~12 Mb), with low memory requirements (peak ~0.6 GB) and support for known splice sites. |
+| Gene counting | featureCounts, exons grouped by `gene_id` | Standard gene-level counts; multi-mapping reads are excluded (default), as usual for differential expression. |
 | Statistics | DESeq2 (design `~ condition`, WT as reference) | Standard statistical framework for RNA-seq count data, accounting for differences in sequencing depth. |
-| Fold-change display | apeglm shrinkage | Shrinks unreliable fold-change estimates, partifuclarly for low-count genes; unshrunken estimates are also retained. |
+| Fold-change display | apeglm shrinkage | Shrinks unreliable fold-change estimates, particularly for low-count genes; unshrunken estimates are also retained. |
 | Significance | adjusted p < 0.05 and, for "strong" changes, \|log2 fold change\| ≥ 1 | Conventional thresholds. |
 | Gene filter | At least 10 reads in at least 4 samples | Removes genes with consistently low expression while retaining genes expressed in the smaller experimental group. |
 
-**Library strandedness was determined empirically** 
+**Library strandedness was determined empirically**
 
 featureCounts was run three times (`-s 0`, `-s 1`, `-s 2`). Under `-s 0`, 61–68% of reads were assigned to genes; under `-s 1` and `-s 2` only 33–39% were. That "about half" pattern means the library is unstranded, so the default is `--strandedness 0`. The three summaries are kept in `metadata/strandedness_test_s*.summary`.
 
-**Quality-control decisions** 
+**Quality-control decisions**
 
 FastQC identified similar quality-control patterns across all eight samples: per-base sequence content and per-tile sequence quality received red flags, while sequence duplication levels received orange flags. Per-base sequence quality was consistently rated green. These patterns are consistent with random-primed RNA-seq libraries, where nucleotide composition biases can occur near read starts and highly expressed genes naturally generate repeated sequences.
 
@@ -67,11 +67,11 @@ Overall sequencing quality was consistent across samples, with approximately 91%
 
 **Why four replicates per group and one sequencing lane?**
 
-Four replicates per group keep the download at 693 MB and the run short; the study authors recommend at least six replicates for small effects (Schurch *et al.* 2016), so the number of changed genes found here is probably an underestimate. 
+Four replicates per group keep the download at 693 MB and the run short; the study authors recommend at least six replicates for small effects (Schurch *et al.* 2016), so the number of changed genes found here is probably an underestimate.
 
 All samples were also selected from the same sequencing lane (lane 1) to minimize potential lane-related technical variation that could otherwise be confounded with the genotype effect.
 
-**Built-in reproducibility validation** 
+**Built-in reproducibility validation**
 
 The last step compares the run with `expected_results/`. Integer counts must reproduce, and the statistical output is allowed a tiny tolerance, because decimals from DESeq2 can differ in the last digits between CPU architectures. Two independent runs on one machine produced byte-identical count, DESeq2 and summary tables.
 
@@ -80,7 +80,7 @@ The last step compares the run with `expected_results/`. Integer counts must rep
 ```mermaid
 flowchart LR
     subgraph SETUP["Setup (not counted as analysis stages)"]
-        SS["samplesheet.csv"] --> DR["DOWNLOAD_READS<br/>ENA, MD5-verified"]
+        SS["samplesheet.csv"] --> DR["DOWNLOAD_READS<br/>GitHub release data-v1, MD5-verified"]
         REF["Ensembl release 115<br/>genome + GTF"] --> DREF["DOWNLOAD_REFERENCE<br/>MD5-verified"]
         DREF --> IDX["HISAT2_INDEX"]
     end
@@ -105,7 +105,7 @@ Nextflow also writes its own graph of the executed run to `results/pipeline_info
 
 | # | Process | Tool (version) | Input → output | Key settings |
 |---|---|---|---|---|
-| setup | `DOWNLOAD_READS` | curl, md5sum | URL + MD5 → FASTQ | 3 parallel downloads, retries, https→ftp fallback |
+| setup | `DOWNLOAD_READS` | curl, md5sum | URL + MD5 → FASTQ | reads from GitHub release `data-v1`; 3 parallel downloads, retries, stall abort, https→ftp fallback |
 | setup | `DOWNLOAD_REFERENCE` | curl, md5sum | URL + MD5 → genome FASTA, GTF | same as above |
 | setup | `HISAT2_INDEX` | HISAT2 2.2.3 | FASTA + GTF → index | known exons and splice sites used |
 | 1 | `FASTQC` | FastQC 0.13.0 | raw reads → HTML + zip report | one task per sample |
@@ -120,11 +120,11 @@ The analysis has six consecutive stages (the three setup processes are not count
 
 ## 4. Data
 
-**Sequencing reads** 
+**Sequencing reads**
 
 Public data from ENA project **PRJEB5348** (study ERP004763): a highly replicated RNA-seq experiment on wild-type *S. cerevisiae* (strain BY4741) and an isogenic *snf2* deletion, with 48 biological replicates per condition, each sequenced in 7 lanes (technical replicates). Reads are single-end, 51 bp, Illumina HiSeq 2000. The ENA record's sample names do not identify biological replicates, so the author-provided mapping (FigShare, doi:10.6084/m9.figshare.1416210) was used to link runs to replicates and lanes, and the authors' list of ten poor-quality replicates ([github.com/bartongroup/profDGE48](https://github.com/bartongroup/profDGE48)) was consulted.
 
-**Subset used** 
+**Subset used**
 
 Lane 1 of the four lowest-numbered replicates of each condition (none are on the exclusion list):
 
@@ -139,7 +139,19 @@ Lane 1 of the four lowest-numbered replicates of each condition (none are on the
 | WT_rep3 | WT | ERR458885 | 1,228,207 | 66.8 MB |
 | WT_rep4 | WT | ERR458892 | 1,926,855 | 104.5 MB |
 
-Total download: 692.7 MB. `samplesheet.csv` lists each sample's URL and MD5; the pipeline downloads the data itself, so no sequencing data is stored in this repository.
+Total download: 692.7 MB.
+
+**Where the reads are hosted**
+
+The eight FASTQ files are unmodified copies of the ENA files. They are attached as assets to the GitHub release [`data-v1`](https://github.com/Wendy1907/yeast-snf2-rnaseq/releases/tag/data-v1) of this repository, not committed to the repository itself. `samplesheet.csv` lists each sample's release URL (`fastq_url`), the original ENA run accession (`run_accession`) and the MD5 checksum of the ENA file (`fastq_md5`). The pipeline downloads the files itself and checks every MD5, so a copy that differs from the ENA original is rejected.
+
+This was done because downloads straight from ENA were slow and frequently stalled (often below 250 KB/s), which made the pipeline's time on 6 cores depend mostly on the network. GitHub release assets download quickly. The data can still be fetched from ENA directly: replace the `fastq_url` column of `samplesheet.csv` with
+
+```
+https://ftp.sra.ebi.ac.uk/vol1/fastq/<first 6 characters of accession>/<accession>/<accession>.fastq.gz
+```
+
+for example `https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR458/ERR458500/ERR458500.fastq.gz`. The MD5 values stay the same.
 
 **Reference.** *S. cerevisiae* assembly R64-1-1 from **Ensembl release 115**: the soft-unmasked top-level genome FASTA (`Saccharomyces_cerevisiae.R64-1-1.dna.toplevel.fa.gz`, 17 sequences: chromosomes I–XVI and mitochondrion) and the gene annotation (`Saccharomyces_cerevisiae.R64-1-1.115.gtf.gz`). Release directories are permanent, and their MD5 checksums are set in `main.nf`. The count table has 7,127 genes. The ENA description of the experiment also mentions ERCC spike-in controls; these do not align to the yeast genome.
 
@@ -147,12 +159,12 @@ Total download: 692.7 MB. `samplesheet.csv` lists each sample's URL and MD5; the
 
 ## 5. Dependencies
 
-**Core (Please refer to installation instruction in [section 6.1](#6-how-to-run-the-pipeline)):**
+**Core (please refer to the installation instructions in [section 6.1](#61-install-the-core-dependencies)):**
 
 | Software | Version | Purpose |
 |---|---|---|
 | Java | 17 or newer (up to 26) | Needed by Nextflow |
-| Nextflow | **26.10.6** (tested; 26.04 or newer required) | Workflow engine |
+| Nextflow | 26.04 or newer (developed and tested with 26.10.6) | Workflow engine |
 | conda | any recent conda or Miniforge (with `conda` on the PATH) | Nextflow builds each tool environment with it |
 | git, curl | any | Clone the repository, install Nextflow |
 
@@ -172,7 +184,7 @@ All environments use the `conda-forge` and `bioconda` channels (with `nodefaults
 
 ## 6. How to run the pipeline
 
-**Requirements:** Linux or macOS on amd64 or arm64, internet access, about 10 GB of free disk (measured: environments 3.6 GB at measurement time, conda's package cache 4.2 GB, results 0.65 GB), and 6 CPU cores recommended. Windows users must use WSL2 (`wsl --install` in an administrator PowerShell, then work inside the Ubuntu terminal, in the Linux home folder, not under `/mnt/c`).
+**Requirements:** Linux or macOS on amd64 or arm64, internet access (including to `github.com` and `ftp.ensembl.org`), about 10 GB of free disk (measured: environments 3.6 GB at measurement time, conda's package cache 4.2 GB, results 0.65 GB), and 6 CPU cores recommended. Windows users must use WSL2 (`wsl --install` in an administrator PowerShell, then work inside the Ubuntu terminal, in the Linux home folder, not under `/mnt/c`).
 
 ### 6.1 Install the core dependencies
 
@@ -197,7 +209,7 @@ Close and reopen the terminal, then check:
 
 ```bash
 java -version        # 17 or newer
-nextflow -version
+nextflow -version    # 26.04 or newer
 conda --version
 ```
 
@@ -227,22 +239,23 @@ which conda
 ```bash
 git clone https://github.com/Wendy1907/yeast-snf2-rnaseq.git
 cd yeast-snf2-rnaseq
-NXF_VER=26.10.6 nextflow run main.nf -profile conda
+nextflow run main.nf -profile conda
 ```
 
-`NXF_VER` makes Nextflow use exactly the tested version (it downloads it on first use). The first run downloads the data and builds seven conda environments, so it takes longer than later runs. Nothing else needs to be configured: no manual downloads, no `conda activate`.
+The first run downloads the data and builds seven conda environments, so it takes longer than later runs. Nothing else needs to be configured: no manual downloads, no `conda activate`.
 
 To mimic a 6-core machine for timing:
 
 ```bash
-NXF_VER=26.10.6 nextflow run main.nf -profile conda -c conf/limit_6cores.config
+nextflow run main.nf -profile conda -c conf/limit_6cores.config
 ```
 
 To resume an interrupted run without repeating successfully completed tasks:
 
 ```bash
-NXF_VER=26.10.6 nextflow run main.nf -profile conda -resume
+nextflow run main.nf -profile conda -resume
 ```
+
 **Troubleshooting**
 
 | Error | Possible solution |
@@ -282,16 +295,16 @@ free -h
 After resolving the error, rerun the original command with `-resume`:
 
 ```bash
-NXF_VER=26.10.6 nextflow run main.nf -profile conda -resume
+nextflow run main.nf -profile conda -resume
 ```
 
 Nextflow will reuse successfully completed tasks whenever their cached results remain valid and rerun tasks that need to be repeated.
 
 ### 6.3 What to expect
 
-- **Time:** measured on a clean clone, capped at 6 CPUs (Ubuntu on WSL2, amd64, fast connection): **7-12 mins** for everything, including downloads and building the environments. The analysis stages together take about a minute. A slower connection mostly lengthens the downloads.
+- **Time:** measured on a clean clone, capped at 6 CPUs (Ubuntu on WSL2, amd64): **Under 10 mins** for everything, including downloads and building the environments. The analysis stages together take about a minute. The read files are downloaded from GitHub release assets, so a slow connection mostly affects the downloads and the first-time environment build.
 - **Memory:** the largest task (fastp) peaked at 1.1 GB.
-- **The last output** is the reproducibility check printed in the terminal; a successful run ends with `OVERALL: PASS`. The report showed in `results/check_report.txt`:
+- **The last output** is the reproducibility check printed in the terminal; a successful run ends with `OVERALL: PASS`. The report is saved in `results/check_report.txt`:
 
 ```
 Reproducibility check against expected_results/
@@ -324,9 +337,10 @@ OVERALL: PASS
 | `--strandedness 0/1/2` | library strandedness for counting (default 0, unstranded) |
 | `-resume` | reuse finished tasks |
 
-- **A download fails or is slow.** ENA occasionally returns temporary errors; the pipeline retries automatically. If it still stops, rerun the same command with `-resume`.
+- **A download fails or is slow.** The pipeline retries automatically and aborts transfers that stall. If it still stops, rerun the same command with `-resume`. The reads come from GitHub release assets and the reference from Ensembl, so check that `github.com` and `ftp.ensembl.org` are reachable from your network.
+- **A read file returns 404.** Check that the release `data-v1` is published and that its assets are still attached. As a fallback, switch the `fastq_url` column in `samplesheet.csv` to the ENA URLs (see [section 4](#4-data)).
 - **Environment creation seems stuck.** The R environment is large and can take several minutes. The timeout is 60 minutes.
-- **"Nextflow version" error.** Use `NXF_VER=26.10.6` as shown.
+- **Nextflow version error.** Check `nextflow -version`. Version 26.04 or newer is required; update with `nextflow self-update`.
 - **Free disk space.** `work/` (and the conda cache) can be deleted after the run: `rm -rf work .nextflow*`.
 - **Start completely fresh.** `rm -rf work results .nextflow*`.
 
@@ -337,7 +351,7 @@ yeast-snf2-rnaseq/
 ├── README.md                  this file
 ├── main.nf                    the workflow: parameters, stages, published outputs
 ├── nextflow.config            resources, conda profile, run records
-├── samplesheet.csv            the 8 samples: condition, ENA URL, MD5
+├── samplesheet.csv            the 8 samples: condition, read URL (GitHub release), MD5
 ├── assets/
 │   └── multiqc_config.yaml    MultiQC title and sample-name cleaning
 ├── bin/
@@ -364,7 +378,7 @@ yeast-snf2-rnaseq/
 └── .nextflow*                 generated: Nextflow logs and cache
 ```
 
-The generated items (`work/`, `results/`, `.nextflow*`) are excluded from git.
+The generated items (`work/`, `results/`, `.nextflow*`) are excluded from git. The FASTQ files are not in the repository tree; they are attached to the GitHub release `data-v1`.
 
 ## 8. Results of the default run
 
@@ -387,6 +401,7 @@ All figures and tables are in `results/deseq2/` after a run; the stored referenc
 - Gene identifiers are systematic yeast names (for example YOR290C); there is no gene-name or functional-enrichment step.
 - Tested end to end on Linux amd64 (Ubuntu on WSL2). The environments resolve for Linux arm64 and macOS (Intel and Apple silicon), but the full pipeline has not yet been executed on those platforms.
 - The byte-for-byte contents of the volcano PNG can differ between runs (label placement), so the check requires figures to exist rather than compares them; tables are compared.
+- The reads depend on the GitHub release `data-v1` staying available. If it is removed, the pipeline can be pointed back at the ENA URLs (see [section 4](#4-data)); the MD5 checksums remain valid.
 
 ## 10. References
 
