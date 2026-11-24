@@ -2,13 +2,8 @@
 
 Differential gene expression in *Saccharomyces cerevisiae*: a *snf2* knockout versus wild type, from public sequencing reads to figures, in one command.
 
-BIOF 501A: Special topics in bioinformatics · Term project · Tran Anh Thu Phung
+BIOF 501A: Special topics in bioinformatics · Term Project · Tran Anh Thu Phung
 
-```bash
-NXF_VER=26.10.6 nextflow run main.nf -profile conda
-```
-
-Prerequisites (Java, Nextflow, conda) and full instructions are in [section 6](#6-how-to-run-the-pipeline).
 
 ## Contents
 
@@ -29,38 +24,56 @@ Prerequisites (Java, Nextflow, conda) and full instructions are in [section 6](#
 
 SNF2 is the catalytic ATPase subunit of the SWI/SNF chromatin-remodelling complex. SWI/SNF slides and ejects nucleosomes so that regulatory proteins can reach DNA, which helps switch many genes on. The complex is conserved from yeast to humans, where the SNF2 homologues SMARCA4 (BRG1) and SMARCA2 belong to a family of remodelling genes that are frequently mutated in cancer. Deleting *SNF2* in yeast is therefore a simple system for asking which genes depend on a chromatin remodeller.
 
-**Biological question:** which genes change expression when *SNF2* is deleted in *S. cerevisiae*?
+**Biological question:** Which genes show changes in expression following SNF2 deletion in *S. cerevisiae*?
 
-**Computational goal:** answer this with a workflow that anyone can rerun and obtain the same numbers: pinned software versions, verified downloads, automatic data retrieval, and a built-in comparison against stored expected results.
+**Computational goal:** Develop a reproducible RNA-seq analysis pipeline that produces consistent results across runs. The workflow incorporates pinned software version, verified data downloads, automated data retrieval, and built-in validation against predefined expected results.
 
-The data come from a published, highly replicated experiment (Gierliński *et al.* 2015; Schurch *et al.* 2016). This project uses a small subset: **4 wild-type and 4 Δsnf2 biological replicates**, chosen so the pipeline downloads under 0.7 GB and runs in minutes on a laptop.
+The analysis uses data from a published, highly replicated RNA-seq experiment (Gierliński *et al.* 2015; Schurch *et al.* 2016). This project uses a small subset: **4 wild-type and 4 Δsnf2 biological replicates**, chosen so that the total download size reduces to under 0.7 GB and allows the pipeline to complete within minutes on a standard laptop.
 
 ## 2. Rationale for the pipeline's design
 
-**Why a workflow manager (Nextflow).** A plain shell script has to be rewritten for each machine, cannot resume after a failure, and runs samples one at a time. Nextflow runs one task per sample in parallel, gives each task its own folder, records what ran (`results/pipeline_info/`), and restarts from the failed step with `-resume`.
+**Why Nextflow?** 
 
-**Why conda inside Nextflow (not Docker).** Each process declares its own pinned conda environment (`envs/*.yml`), and Nextflow builds it automatically. Conda packages for every tool exist natively for Linux amd64, Linux arm64, macOS Intel and macOS Apple silicon (checked by solving each environment for all four platforms). Most BioContainers images are amd64-only, so on Apple silicon they would run through slow emulation, and Docker needs a root daemon that shared clusters often forbid.
+A workflow manager makes the analysis easier to run, maintain, and reproduce across different machines. Unlike a basic shell script, Nextflow supports parallel processing, assigns each task its own working directory, and can resume an interrupted analysis without repeating completed steps using `-resume`. It also record execution details and software information in (`results/pipeline_info/`), making the workflow eaiser to monitor and debug.
 
-**Pinned and verified inputs.** Every tool version is pinned. Reads come from ENA by explicit URL with an MD5 checksum; the Ensembl reference is a fixed release (115) with MD5 checksums recorded in `main.nf`. A corrupt or changed file fails loudly and is retried instead of silently changing results. Downloads retry automatically and fall back from `https://` to `ftp://`.
+**Why Conda instead of Docker?** 
 
-**Choice of tools.**
+Each process declares its own pinned Conda environment defined in `envs/*.yml`, and Nextflow builds it automatically, ensuring that each tool runs with the correct dependencies. Conda was chosen because the reuqired packages are available natively for Linux amd64, Linux arm64, macOS Intel, and macOS Apple silicon, with compatibility verified by solving each environement for all four platforms. In contrast, most available BioContainers images are amd64-only, which can reuqire slower emulation on Apple silicon. Docker also requires a deamon that may not be permitted on shared computing cluster.
+
+**Pinned software and verified inputs** 
+
+Every tool version is pinned. Reads come from ENA by explicit URL with an MD5 checksum; the Ensembl reference is a fixed release (115) with MD5 checksums recorded in `main.nf`. A corrupt or changed file fails loudly and is retried instead of silently changing results. Downloads retry automatically and fall back from `https://` to `ftp://`.
+
+**Choice of tools**
 
 | Step | Choice | Reason |
 |---|---|---|
-| Alignment | HISAT2 | Small genome (12 Mb), one-command index, low memory (peak 0.6 GB), uses known splice sites from the annotation |
-| Counting | featureCounts, exons grouped by `gene_id` | Standard gene-level counts; multi-mapping reads are excluded (default), as usual for differential expression |
-| Statistics | DESeq2 (design `~ condition`, WT as reference) | Standard for count data; handles differing sequencing depth |
-| Fold-change display | apeglm shrinkage | Pulls unreliable large fold changes from low-count genes toward zero in the plots; unshrunken values are also saved |
-| Significance | adjusted p < 0.05 and, for "strong" changes, \|log2 fold change\| ≥ 1 | Conventional thresholds |
-| Gene filter | ≥ 10 reads in ≥ 4 samples | Removes unexpressed genes; 4 is the size of the smaller group |
+| Alignment | HISAT2 | Efficient for the small yeast genome (~12 Mb), with low memory requirements (peak ~0.6 GB) and support for known splice sites.|
+| Gene Counting | featureCounts, exons grouped by `gene_id` | Standard gene-level counts; multi-mapping reads are excluded (default), as usual for differential expression. |
+| Statistics | DESeq2 (design `~ condition`, WT as reference) | Standard statistical framework for RNA-seq count data, accounting for differences in sequencing depth. |
+| Fold-change display | apeglm shrinkage | Shrinks unreliable fold-change estimates, partifuclarly for low-count genes; unshrunken estimates are also retained. |
+| Significance | adjusted p < 0.05 and, for "strong" changes, \|log2 fold change\| ≥ 1 | Conventional thresholds. |
+| Gene filter | At least 10 reads in at least 4 samples | Removes genes with consistently low expression while retaining genes expressed in the smaller experimental group. |
 
-**Library strandedness was measured, not assumed.** featureCounts was run three times (`-s 0`, `-s 1`, `-s 2`). Under `-s 0`, 61–68% of reads were assigned to genes; under `-s 1` and `-s 2` only 33–39% were. That "about half" pattern means the library is unstranded, so the default is `--strandedness 0`. The three summaries are kept in `metadata/strandedness_test_s*.summary`.
+**Library strandedness was determined empirically** 
 
-**Quality-control decisions.** In all eight samples FastQC flags *per-base sequence content* (red), *per-tile sequence quality* (red) and *sequence duplication levels* (orange), while *per-base sequence quality* is green. These are expected for random-primed RNA-seq on an older HiSeq instrument: the first bases of reads are biased by random priming, and highly expressed genes legitimately produce many identical reads. The samples behave alike (Q30 ≈ 91%, fastp keeps 99.6–99.8% of reads, adapter dimers ≤ 0.22%), so no read was hard-trimmed beyond adapters and **duplicates were deliberately not removed**, because removal would erase real expression differences.
+featureCounts was run three times (`-s 0`, `-s 1`, `-s 2`). Under `-s 0`, 61–68% of reads were assigned to genes; under `-s 1` and `-s 2` only 33–39% were. That "about half" pattern means the library is unstranded, so the default is `--strandedness 0`. The three summaries are kept in `metadata/strandedness_test_s*.summary`.
 
-**Why 4 vs 4, one lane.** Four replicates per group keep the download at 693 MB and the run short; the study authors recommend at least six replicates for small effects (Schurch *et al.* 2016), so the number of changed genes found here is probably an underestimate. Using the same sequencing lane (lane 1) for every sample prevents a lane difference from being mistaken for a genotype effect.
+**Quality-control decisions** 
 
-**Built-in reproducibility check.** The last step compares the run with `expected_results/`. Integer counts must reproduce, and the statistical output is allowed a tiny tolerance, because decimals from DESeq2 can differ in the last digits between CPU architectures. Two independent runs on one machine produced byte-identical count, DESeq2 and summary tables.
+FastQC identified similar quality-control patterns across all eight samples: per-base sequence content and per-tile sequence quality received red flags, while sequence duplication levels received orange flags. Per-base sequence quality was consistently rated green. These patterns are consistent with random-primed RNA-seq libraries, where nucleotide composition biases can occur near read starts and highly expressed genes naturally generate repeated sequences.
+
+Overall sequencing quality was consistent across samples, with approximately 91% of bases achieving Q30, 99.6–99.8% of reads retained after fastp filtering, and adapter dimers accounting for no more than 0.22%. Given these results, reads were not hard-trimmed beyond adapter removal, and duplicate reads were deliberately retained. Removing duplicates could eliminate genuine biological signals from highly expressed genes.
+
+**Why four replicates per group and one sequencing lane?**
+
+Four replicates per group keep the download at 693 MB and the run short; the study authors recommend at least six replicates for small effects (Schurch *et al.* 2016), so the number of changed genes found here is probably an underestimate. 
+
+All samples were also selected from the same sequencing lane (lane 1) to minimize potential lane-related technical variation that could otherwise be confounded with the genotype effect.
+
+**Built-in reproducibility validation** 
+
+The last step compares the run with `expected_results/`. Integer counts must reproduce, and the statistical output is allowed a tiny tolerance, because decimals from DESeq2 can differ in the last digits between CPU architectures. Two independent runs on one machine produced byte-identical count, DESeq2 and summary tables.
 
 ## 3. Pipeline stages and DAG
 
@@ -107,9 +120,13 @@ The analysis has six consecutive stages (the three setup processes are not count
 
 ## 4. Data
 
-**Sequencing reads.** Public data from ENA project **PRJEB5348** (study ERP004763): a highly replicated RNA-seq experiment on wild-type *S. cerevisiae* (strain BY4741) and an isogenic *snf2* deletion, with 48 biological replicates per condition, each sequenced in 7 lanes (technical replicates). Reads are single-end, 51 bp, Illumina HiSeq 2000. The ENA record's sample names do not identify biological replicates, so the author-provided mapping (FigShare, doi:10.6084/m9.figshare.1416210) was used to link runs to replicates and lanes, and the authors' list of ten poor-quality replicates (github.com/bartongroup/profDGE48) was consulted.
+**Sequencing reads** 
 
-**Subset used.** Lane 1 of the four lowest-numbered replicates of each condition (none are on the exclusion list):
+Public data from ENA project **PRJEB5348** (study ERP004763): a highly replicated RNA-seq experiment on wild-type *S. cerevisiae* (strain BY4741) and an isogenic *snf2* deletion, with 48 biological replicates per condition, each sequenced in 7 lanes (technical replicates). Reads are single-end, 51 bp, Illumina HiSeq 2000. The ENA record's sample names do not identify biological replicates, so the author-provided mapping (FigShare, doi:10.6084/m9.figshare.1416210) was used to link runs to replicates and lanes, and the authors' list of ten poor-quality replicates ([github.com/bartongroup/profDGE48](https://github.com/bartongroup/profDGE48)) was consulted.
+
+**Subset used** 
+
+Lane 1 of the four lowest-numbered replicates of each condition (none are on the exclusion list):
 
 | Sample | Condition | ENA run | Reads | Download size |
 |---|---|---|---|---|
@@ -130,14 +147,14 @@ Total download: 692.7 MB. `samplesheet.csv` lists each sample's URL and MD5; the
 
 ## 5. Dependencies
 
-**Core (install yourself):**
+**Core (Please refer to installation instruction in [section 6.1](#6-how-to-run-the-pipeline)):**
 
 | Software | Version | Purpose |
 |---|---|---|
-| Java | 17 or newer (up to 26) | needed by Nextflow |
-| Nextflow | **26.10.6** (tested; 26.04 or newer required) | workflow engine |
+| Java | 17 or newer (up to 26) | Needed by Nextflow |
+| Nextflow | **26.10.6** (tested; 26.04 or newer required) | Workflow engine |
 | conda | any recent conda or Miniforge (with `conda` on the PATH) | Nextflow builds each tool environment with it |
-| git, curl | any | clone the repository, install Nextflow |
+| git, curl | any | Clone the repository, install Nextflow |
 
 **Pipeline tools (installed automatically by Nextflow from `envs/`):**
 
@@ -184,7 +201,26 @@ nextflow -version
 conda --version
 ```
 
-macOS: install a Java 17+ JDK (for example from https://adoptium.net), then run the same `curl` commands for Nextflow and Miniforge (the Miniforge file name adapts through `uname`) and use `conda init zsh`. This route has not been tested on a Mac.
+macOS: install a Java 17+ JDK (for example from [https://adoptium.net/](https://adoptium.net/)), then run the same `curl` commands for Nextflow and Miniforge (the Miniforge file name adapts through `uname`) and use `conda init zsh`. This route has not been tested on a Mac.
+
+**Troubleshooting**
+
+| Error | Possible solution |
+|---|---|
+| `java: command not found` | Java is not installed or is missing from PATH. Reinstall Java 17+ and reopen the terminal. |
+| `UnsupportedClassVersionError` | The installed Java version is too old. Check with `java -version` and install Java 17 or newer. |
+| `nextflow: command not found` | Nextflow's installation directory is missing from PATH. Run `source ~/.bashrc`, then check `echo $PATH`. |
+| `Permission denied` when running Nextflow | Run `chmod +x ~/.local/bin/nextflow`. |
+| `conda: command not found` | Reopen the terminal after `conda init bash`, or run `source ~/.bashrc`. |
+| Miniforge installer reports an architecture error | Check your architecture using `uname -m`. Common values are `x86_64` (Intel/AMD) and `aarch64` (ARM64). |
+
+If a dependency is still not recognized, check its installation path:
+
+```bash
+which java
+which nextflow
+which conda
+```
 
 ### 6.2 Get the pipeline and run it
 
@@ -196,11 +232,64 @@ NXF_VER=26.10.6 nextflow run main.nf -profile conda
 
 `NXF_VER` makes Nextflow use exactly the tested version (it downloads it on first use). The first run downloads the data and builds seven conda environments, so it takes longer than later runs. Nothing else needs to be configured: no manual downloads, no `conda activate`.
 
-To mimic a 6-core machine for timing, add `-c conf/limit_6cores.config`. To restart after an interruption, add `-resume`.
+To mimic a 6-core machine for timing:
+
+```bash
+NXF_VER=26.10.6 nextflow run main.nf -profile conda -c conf/limit_6cores.config
+```
+
+To resume an interrupted run without repeating successfully completed tasks:
+
+```bash
+NXF_VER=26.10.6 nextflow run main.nf -profile conda -resume
+```
+**Troubleshooting**
+
+| Error | Possible solution |
+|---|---|
+| `Repository not found` during `git clone` | Check the repository URL and your internet connection. If the repository is private, ensure you have GitHub access and authentication configured. |
+| `Unable to locate config file` or `main.nf` not found | Make sure you are running the command from the project directory. Check using `pwd` and `ls`. |
+| `Unable to acquire lock` or Java-related errors | Check the Java installation using `java -version`. Make sure Java 17+ is available. |
+| Conda environment creation fails | Check your internet connection and available disk space. Conda needs to download packages and resolve dependencies during the first run. |
+| Download fails or checksum verification fails | Check your internet connection and retry using `-resume`. Persistent checksum mismatches should be investigated rather than bypassed. |
+| Pipeline stops with a failed process | Check the error message in the terminal and inspect the corresponding task directory under `work/`. Retry using `-resume` after addressing the underlying issue. |
+| Out of memory or insufficient disk space | Close unnecessary applications, free disk space, or reduce the number of available CPUs. |
+
+**Where to find error information**
+
+If the pipeline fails, the following locations help identify the problem:
+
+- `.nextflow.log`: Main execution log containing error messages and task information.
+- `work/`: Individual task directories containing execution scripts, commands, and error logs.
+- `results/pipeline_info/`: Execution reports, software information, and pipeline metadata (when generated).
+
+Useful commands for inspecting a failed run:
+
+```bash
+# View the most recent Nextflow log messages
+tail -n 50 .nextflow.log
+
+# List recently modified task directories
+ls -lt work/
+
+# Check available disk space
+df -h
+
+# Check available memory
+free -h
+```
+
+After resolving the error, rerun the original command with `-resume`:
+
+```bash
+NXF_VER=26.10.6 nextflow run main.nf -profile conda -resume
+```
+
+Nextflow will reuse successfully completed tasks whenever their cached results remain valid and rerun tasks that need to be repeated.
 
 ### 6.3 What to expect
 
-- **Time:** measured on a clean clone, capped at 6 CPUs (Ubuntu on WSL2, amd64, fast connection): **7 min 8 s** for everything, including downloads (13 s to 3 min 46 s per file) and building the environments. The analysis stages together take about a minute. A slower connection mostly lengthens the downloads.
+- **Time:** measured on a clean clone, capped at 6 CPUs (Ubuntu on WSL2, amd64, fast connection): **7-12 mins** for everything, including downloads and building the environments. The analysis stages together take about a minute. A slower connection mostly lengthens the downloads.
 - **Memory:** the largest task (fastp) peaked at 1.1 GB.
 - **The last output** is the reproducibility check printed in the terminal; a successful run ends with `OVERALL: PASS`. The report showed in `results/check_report.txt`:
 
@@ -271,7 +360,7 @@ yeast-snf2-rnaseq/
 │   └── featurecounts.nf  deseq2.nf  multiqc.nf  check_results.nf
 │
 ├── work/                      generated: task folders and conda environments
-├── results/                   generated: all outputs (section 6.4)
+├── results/                   generated: all outputs (only appear after section 6.4)
 └── .nextflow*                 generated: Nextflow logs and cache
 ```
 
