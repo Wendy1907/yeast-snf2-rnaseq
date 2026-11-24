@@ -17,7 +17,7 @@ process DOWNLOAD {
     rm -f ${filename}
     fetch() {
         curl -L --fail --silent --show-error \\
-             --retry 5 --retry-all-errors --retry-delay 10 \\
+             --retry 5 --retry-all-errors --retry-delay 10 --speed-limit 100000 --speed-time 30 \\
              -o ${filename} "\$1"
     }
     fetch "${url}" || { echo "Primary URL failed; trying ${ftp_url}" >&2; fetch "${ftp_url}"; }
