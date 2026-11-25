@@ -415,4 +415,8 @@ All figures and tables are in `results/deseq2/` after a run; the stored referenc
 - Zhu A, Ibrahim JG, Love MI (2019). Heavy-tailed prior distributions for sequence count data: removing the noise and preserving large differences. *Bioinformatics* 35:2084–2092. https://doi.org/10.1093/bioinformatics/bty895
 - Chen S, *et al.* (2018). fastp: an ultra-fast all-in-one FASTQ preprocessor. *Bioinformatics* 34:i884–i890.
 - Ewels P, *et al.* (2016). MultiQC: summarize analysis results for multiple tools and samples in a single report. *Bioinformatics* 32:3047–3048.
-- Andrews S. FastQC: a quality control tool for high throughput sequence data. https://www.bioinformatics.babraham.ac.uk/projects/fastqc/
+- Andrews S. FastQC: a quality control tool for high-throughput sequence data. https://www.bioinformatics.babraham.ac.uk/projects/fastqc/
+
+## 11. Disclosure
+Generative AI (Claude by Anthropic) was used throughout this project to suggest datasets, refine and debug the pipeline code, and draft this README.
+
