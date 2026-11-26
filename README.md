@@ -77,29 +77,37 @@ The last step compares the run with `expected_results/`. Integer counts must rep
 
 ## 3. Pipeline stages and DAG
 
+
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph SETUP["Setup (not counted as analysis stages)"]
-        SS["samplesheet.csv"] --> DR["DOWNLOAD_READS<br/>GitHub release data-v1, MD5-verified"]
-        REF["Ensembl release 115<br/>genome + GTF"] --> DREF["DOWNLOAD_REFERENCE<br/>MD5-verified"]
+        SS["FASTQ Files"] --> DR["DOWNLOAD_READS"]
+        REF["Genome FASTA + GTF"] --> DREF["DOWNLOAD_REFERENCE"]
         DREF --> IDX["HISAT2_INDEX"]
     end
-    DR --> FQ["1. FASTQC<br/>raw read QC"]
-    DR --> FP["2. FASTP<br/>trim and filter"]
-    FP --> AL["3. HISAT2_ALIGN<br/>sort and index BAM"]
+    DR --> FQ["1. FASTQC"]
+    DR -->FP["2. FASTP"]
+    FP -->AL["3. HISAT2_ALIGN"]
     IDX --> AL
-    AL --> FC["4. FEATURECOUNTS<br/>gene x sample table"]
+    AL -->|"BAM files (all samples)"| FC["4. FEATURECOUNTS"]
     DREF --> FC
-    FC --> DE["5. DESEQ2<br/>tables and 5 figures"]
-    FQ --> MQ["6. MULTIQC<br/>summary report"]
+    FC --> DE["5. DESEQ2"]
+    FQ --> MQ["6. MULTIQC"]
     FP --> MQ
     AL --> MQ
-    FC --> MQ
-    DE --> CK["CHECK_RESULTS<br/>compare with expected_results/"]
+    FC -->  MQ
+    DE --> CK["CHECK_RESULTS"]
     FC --> CK
     AL --> CK
     MQ --> CK
 ```
+
+**How the stages connect**
+
+- **Per sample, in parallel.** `FASTQC` and `FASTP` both start from the downloaded reads and run side by side. `HISAT2_ALIGN` waits for the trimmed reads of its sample and for the HISAT2 index.
+- **All samples together.** `FEATURECOUNTS` waits until the BAM files of all 8 samples exist and produces one count table. `DESEQ2` analyses that table once.
+- **Reports and check.** `MULTIQC` collects the FastQC, fastp, HISAT2, `samtools flagstat` and featureCounts reports. `CHECK_RESULTS` is the last step. It reads the count matrix, the HISAT2 logs, the DESeq2 results and figures, and the MultiQC report, and compares them with `expected_results/`.
+- **Longest chain.** `FASTP` → `HISAT2_ALIGN` → `FEATURECOUNTS` → `DESEQ2` is four consecutive analysis steps. One complete run is 39 tasks (8 samples).
 
 Nextflow also writes its own graph of the executed run to `results/pipeline_info/dag.mmd` (a copy is in `docs/dag.mmd`).
 
